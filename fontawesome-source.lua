@@ -12,13 +12,13 @@ local FontAwesome = {}
 -- Where the spritesheet PNGs are hosted. Must be reachable at runtime.
 -- Files live at: <BASE_URL>/1.png .. 5.png
 local BASE_URL = "https://raw.githubusercontent.com/xXehub/sixsense-fontawesome/main/"
-local VERSION = "2026-06-04-2"
+local VERSION = "2026-06-04-3"
 local FOLDER = "fontawesome-icons"
 
-local CELL = 48
-local PER_ROW = 21
-local PER_SHEET = 441
-local SHEET_COUNT = 5
+local CELL = 64
+local PER_ROW = 16
+local PER_SHEET = 256
+local SHEET_COUNT = 8
 
 -- ==================== ASSET DOWNLOAD / CACHE ====================
 local SheetUrls = {}
