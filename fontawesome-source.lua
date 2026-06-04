@@ -12,7 +12,7 @@ local FontAwesome = {}
 -- Where the spritesheet PNGs are hosted. Must be reachable at runtime.
 -- Files live at: <BASE_URL>/1.png .. 5.png
 local BASE_URL = "https://raw.githubusercontent.com/xXehub/sixsense-fontawesome/main/"
-local VERSION = "2026-06-04"
+local VERSION = "2026-06-04-2"
 local FOLDER = "fontawesome-icons"
 
 local CELL = 48
@@ -24,40 +24,63 @@ local SHEET_COUNT = 5
 local SheetUrls = {}
 local IS_GETCUSTOMASSET_BROKEN = false
 
+-- Safe wrappers: on some executors is*/make* THROW instead of returning a
+-- boolean. A raw call would abort module load and break every icon, so guard them.
+local function SafeIsFolder(p)
+	local ok, r = pcall(isfolder, p)
+	return ok and r == true
+end
+local function SafeIsFile(p)
+	local ok, r = pcall(isfile, p)
+	return ok and r == true
+end
+
 do
-	if writefile and isfolder and makefolder and isfile and getcustomasset then
-		if not isfolder(FOLDER) then
-			makefolder(FOLDER)
-		end
-
-		local VersionPath = FOLDER .. "/version.txt"
-		local ShouldUpdate = true
-		if isfile(VersionPath) then
-			local ok, data = pcall(readfile, VersionPath)
-			ShouldUpdate = not (ok and data == VERSION)
-		end
-		if ShouldUpdate then
-			pcall(writefile, VersionPath, VERSION)
-		end
-
-		for sheet = 1, SHEET_COUNT do
-			local path = string.format("%s/%d.png", FOLDER, sheet)
-			if ShouldUpdate or not isfile(path) then
-				pcall(function()
-					writefile(path, game:HttpGet(BASE_URL .. sheet .. ".png"))
-				end)
+	local HasFS = writefile and isfile and isfolder and makefolder and getcustomasset
+	if HasFS then
+		pcall(function()
+			if not SafeIsFolder(FOLDER) then
+				makefolder(FOLDER)
 			end
-		end
 
-		for sheet = 1, SHEET_COUNT do
-			local path = string.format("%s/%d.png", FOLDER, sheet)
-			local ok, asset = pcall(getcustomasset, path)
-			if ok and asset then
-				SheetUrls[sheet] = asset
-			else
-				IS_GETCUSTOMASSET_BROKEN = true
+			local VersionPath = FOLDER .. "/version.txt"
+			local CurrentVersion = nil
+			if SafeIsFile(VersionPath) then
+				local ok, data = pcall(readfile, VersionPath)
+				if ok then
+					CurrentVersion = data
+				end
 			end
-		end
+			local ShouldUpdate = CurrentVersion ~= VERSION
+
+			-- Download missing / outdated sheets.
+			for sheet = 1, SHEET_COUNT do
+				local path = string.format("%s/%d.png", FOLDER, sheet)
+				if ShouldUpdate or not SafeIsFile(path) then
+					pcall(function()
+						writefile(path, game:HttpGet(BASE_URL .. sheet .. ".png"))
+					end)
+				end
+			end
+
+			-- Resolve to custom assets. Only stamp the version once ALL sheets resolve,
+			-- so a partial/failed download retries on the next run.
+			local AllResolved = true
+			for sheet = 1, SHEET_COUNT do
+				local path = string.format("%s/%d.png", FOLDER, sheet)
+				local ok, asset = pcall(getcustomasset, path)
+				if ok and asset then
+					SheetUrls[sheet] = asset
+				else
+					AllResolved = false
+					IS_GETCUSTOMASSET_BROKEN = true
+				end
+			end
+
+			if AllResolved then
+				pcall(writefile, VersionPath, VERSION)
+			end
+		end)
 	else
 		IS_GETCUSTOMASSET_BROKEN = true
 	end
